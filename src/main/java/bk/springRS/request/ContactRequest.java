@@ -6,6 +6,14 @@ public class ContactRequest {
     private String surname;
     private String phone;
 
+    public ContactRequest() {}
+
+    public ContactRequest(String name, String surname, String phone) {
+        this.name = name;
+        this.surname = surname;
+        this.phone = phone;
+    }
+
     public String getName() {
         return name;
     }
@@ -28,5 +36,17 @@ public class ContactRequest {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public boolean isAnyEmptyProperties() {
+        return this.getName() == null ||
+                this.getSurname() == null ||
+                this.getPhone() == null;
+    }
+
+    @Override
+    public String toString() {
+        return "[name = " + getName() + ", surname = " + getSurname() +
+                ", phone = " + getPhone() + "]";
     }
 }

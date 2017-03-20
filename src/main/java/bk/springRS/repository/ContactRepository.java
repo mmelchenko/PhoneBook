@@ -11,6 +11,9 @@ import java.util.List;
 @Repository
 public interface ContactRepository extends JpaRepository<Contact, Long> {
 
+    @Query("select c from Contact c where c.id = :id")
+    Contact findById(@Param("id") Long id);
+
     @Query("select c from Contact c where c.name = :name")
     List<Contact> findByName(@Param("name") String name);
 
@@ -18,5 +21,5 @@ public interface ContactRepository extends JpaRepository<Contact, Long> {
     List<Contact> findBySurname(@Param("surname") String surname);
 
     @Query("select c from Contact c where c.name = :name and c.surname = :surname")
-    Contact findByNameAndSurname(@Param("name") String name, @Param("surname") String surname);
+    List<Contact> findByNameAndSurname(@Param("name") String name, @Param("surname") String surname);
 }

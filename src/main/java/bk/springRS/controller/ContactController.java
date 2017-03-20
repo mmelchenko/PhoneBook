@@ -1,70 +1,128 @@
 package bk.springRS.controller;
 
+import bk.springRS.exception.BadRequestException;
+import bk.springRS.exception.ContactNotFoundException;
 import bk.springRS.request.ContactRequest;
 import bk.springRS.entity.Contact;
-import bk.springRS.repository.ContactRepository;
+import bk.springRS.service.ContactService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.repository.query.Param;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/contacts")
 public class ContactController {
 
-    private ContactRepository repository;
-
     @Autowired
-    public ContactController(ContactRepository repository) {
-        this.repository = repository;
+    private ContactService service;
+
+    @RequestMapping(path = "/update_or_delete", method = RequestMethod.POST)
+    public String updateOrDelete(@Param("id") Long id, @Param("delete") boolean delete, @RequestBody ContactRequest contactRequest) {
+        if(contactRequest.isAnyEmptyProperties()) {
+            throw new BadRequestException("Bad request.");
+        }
+
+        Contact contact = service.findById(id);
+
+        if(contact == null) {
+            throw new ContactNotFoundException("Contact " + contactRequest + " was not found.");
+        }
+
+        if(delete) {
+            service.deleteContact(id);
+            return "Contact " + contact + " was deleted.";
+        }
+
+        Contact contactBeforeUpdate = new Contact();
+        contactBeforeUpdate.setName(contact.getName());
+        contactBeforeUpdate.setSurname(contact.getSurname());
+        contactBeforeUpdate.setPhone(contact.getPhone());
+        service.updateContact(id, contactRequest);
+
+        Contact contactAfterUpdate = service.findById(id);
+        return "Contact " + contactBeforeUpdate + " was updated. \n " +
+                "Now it looks like that " + contactAfterUpdate + ".";
     }
 
-    @RequestMapping(method = RequestMethod.GET)
-    public List<Contact> findAllContacts() {
-        return repository.findAll();
+    @RequestMapping(path = "/create_or_update", method = RequestMethod.POST)
+    public String createOrUpdate(@Param("update") String update, @RequestBody ContactRequest contactRequest) {
+        if(contactRequest.isAnyEmptyProperties()) {
+            throw new BadRequestException("Bad request.");
+        }
+        System.out.println("IN THE CONTROLLERS METHOD!!!");
+        ArrayList<Contact> contacts = new ArrayList<>(service.findByNameAndSurname(contactRequest.getName(),contactRequest.getSurname()));
+
+        if(update.toLowerCase().equals("true")) {
+            if(!contacts.isEmpty()) {
+                Contact contact = contacts.get(contacts.size()-1);
+
+                Contact contactBefore = new Contact();
+                contactBefore.setId(contact.getId());
+                contactBefore.setName(contact.getName());
+                contactBefore.setSurname(contact.getSurname());
+                contactBefore.setPhone(contact.getPhone());
+
+                service.updateContact(contact.getId(), contactRequest);
+                Contact contactAfter = service.findById(contact.getId());
+                return "Contact " + contactBefore + " was updated. \n " +
+                        "Now it looks like that " + contactAfter + ".";
+            } else throw new ContactNotFoundException("Contact " + contactRequest + " was not found.");
+        }
+        System.out.println("IN THE CONTROLLERS METHOD!!!(THE END))");
+        service.addContact(contactRequest);
+        System.out.println("Contact " + contactRequest + " was added to the phone-book.");
+        return "Contact " + contactRequest + " was added to the phone-book.";
     }
 
-    @RequestMapping(path = "/find_by_name", method = RequestMethod.GET)
-    public List<Contact> findContactsByName(@Param("name") String name) {
-        return repository.findByName(name);
-    }
+    @RequestMapping(path = "/create_or_delete", method = RequestMethod.POST)
+    public @ResponseBody String createOrDelete(@Param("delete") String delete, @RequestBody ContactRequest contactRequest) {
+        if(contactRequest.isAnyEmptyProperties()) {
+            throw new BadRequestException("Bad request.");
+        }
 
-    @RequestMapping(path = "/find_by_surname", method = RequestMethod.GET)
-    public List<Contact> findContactsBySurname(@Param("surname") String surname) {
-        return repository.findBySurname(surname);
-    }
+        ArrayList<Contact> contacts = new ArrayList<>(service.findByNameAndSurname(contactRequest.getName(),contactRequest.getSurname()));
 
-    @RequestMapping(path = "/find_by_name_and_surname", method = RequestMethod.GET)
-    public Contact findByNameAndSurname(@Param("name") String name, @Param("surname") String surname) {
-        return repository.findByNameAndSurname(name, surname);
-    }
+        if(delete.toLowerCase().equals("true")) {
+            if(!contacts.isEmpty()) {
+                Contact contact = contacts.get(0);
+                service.deleteContact(contact.getId());
+                return "Contact " + contact + " was deleted.";
+            } else throw new ContactNotFoundException("Contact " + contactRequest + " was not found.");
+        }
 
-    @RequestMapping(method = RequestMethod.POST)
-    public void addContact(@RequestBody ContactRequest contactRequest) {
-        Contact contact = new Contact();
-        contact.setName(contactRequest.getName());
-        contact.setSurname(contactRequest.getSurname());
-        contact.setPhone(contactRequest.getPhone());
-        repository.save(contact);
-        repository.flush();
+        service.addContact(contactRequest);
+        return "Contact " + contactRequest + " was added to the phone-book.";
     }
+/*
+    @RequestMapping(value = "/all_contacts", method = RequestMethod.GET)
+    public ResponseEntity<List<Contact>> getAllContacts() throws IOException, ServletException {
+        System.out.println("IN THE CONTROLLERS METHOD!!!(THE END))");
+        ArrayList<Contact> allContacts = new ArrayList<>(service.findAllContacts());
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-Type:application/json", "application/json");
+        ResponseEntity<List<Contact>> responseEntity = new ResponseEntity(allContacts, headers, HttpStatus.OK);
+        System.out.println("IN THE CONTROLLERS METHOD!!!(THE END))");
+        return responseEntity;
+    }*/
 
-    @RequestMapping(method = RequestMethod.PUT)
-    public void updateContact(@Param("id") Long id, @RequestBody ContactRequest contactRequest) {
-        Contact contact = repository.findOne(id);
-        contact.setName(contactRequest.getName());
-        contact.setSurname(contactRequest.getSurname());
-        contact.setPhone(contactRequest.getPhone());
-        repository.save(contact);
-        repository.flush();
-    }
+    @ResponseBody
+    @RequestMapping(value = "/all_contacts", method = RequestMethod.GET, produces = "text/plain")
+    public ResponseEntity<String> getAllContacts() {
+        ArrayList<Contact> allContacts = new ArrayList<>(service.findAllContacts());
 
-    @RequestMapping(method = RequestMethod.DELETE)
-    public void deleteContact(@Param("id")  Long id) {
-        repository.delete(id);
+        StringBuilder response = new StringBuilder();
+
+        for (Contact allContact : allContacts) {
+            response.append(allContact.toString()).append("\n");
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_PLAIN);
+        return new ResponseEntity<>(response.toString(), headers, HttpStatus.OK);
     }
 }
