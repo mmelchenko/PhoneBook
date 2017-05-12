@@ -7,12 +7,11 @@ import bk.springRS.entity.Contact;
 import bk.springRS.service.ContactService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.repository.query.Param;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/contacts")
@@ -21,8 +20,8 @@ public class ContactController {
     @Autowired
     private ContactService service;
 
-    @RequestMapping(path = "/update_or_delete", method = RequestMethod.POST)
-    public String updateOrDelete(@Param("id") Long id, @Param("delete") boolean delete, @RequestBody ContactRequest contactRequest) {
+    @RequestMapping(path = "/update_or_delete", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE, method = RequestMethod.POST)
+    public Contact updateOrDelete(@Param("id") Long id, @Param("delete") boolean delete, @RequestBody ContactRequest contactRequest) {
         if(contactRequest.isAnyEmptyProperties()) {
             throw new BadRequestException("Bad request.");
         }
@@ -35,94 +34,79 @@ public class ContactController {
 
         if(delete) {
             service.deleteContact(id);
-            return "Contact " + contact + " was deleted.";
+            return contact;
         }
 
-        Contact contactBeforeUpdate = new Contact();
-        contactBeforeUpdate.setName(contact.getName());
-        contactBeforeUpdate.setSurname(contact.getSurname());
-        contactBeforeUpdate.setPhone(contact.getPhone());
         service.updateContact(id, contactRequest);
-
         Contact contactAfterUpdate = service.findById(id);
-        return "Contact " + contactBeforeUpdate + " was updated. \n " +
-                "Now it looks like that " + contactAfterUpdate + ".";
+        return contactAfterUpdate;
     }
 
-    @RequestMapping(path = "/create_or_update", method = RequestMethod.POST)
-    public String createOrUpdate(@Param("update") String update, @RequestBody ContactRequest contactRequest) {
+    @RequestMapping(path = "/create_or_update", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_UTF8_VALUE, method = RequestMethod.POST)
+    public Contact createOrUpdate(@Param("update") String update, @RequestBody ContactRequest contactRequest) {
+
         if(contactRequest.isAnyEmptyProperties()) {
             throw new BadRequestException("Bad request.");
         }
-        System.out.println("IN THE CONTROLLERS METHOD!!!");
-        ArrayList<Contact> contacts = new ArrayList<>(service.findByNameAndSurname(contactRequest.getName(),contactRequest.getSurname()));
 
-        if(update.toLowerCase().equals("true")) {
-            if(!contacts.isEmpty()) {
-                Contact contact = contacts.get(contacts.size()-1);
+        ArrayList<Contact> contacts = new ArrayList<>(service.findByNameAndSurname(contactRequest.getName(), contactRequest.getSurname()));
+        if (!contacts.isEmpty() && update.toLowerCase().equals("true")) {
+            Contact contact;
+            try {
+                contact = contacts.get(contacts.size() - 1);
+            } catch (ArrayIndexOutOfBoundsException e) {
+                e.printStackTrace();
+                throw new ContactNotFoundException("Contact " + contactRequest + " was not found.");
+            }
 
-                Contact contactBefore = new Contact();
-                contactBefore.setId(contact.getId());
-                contactBefore.setName(contact.getName());
-                contactBefore.setSurname(contact.getSurname());
-                contactBefore.setPhone(contact.getPhone());
-
-                service.updateContact(contact.getId(), contactRequest);
-                Contact contactAfter = service.findById(contact.getId());
-                return "Contact " + contactBefore + " was updated. \n " +
-                        "Now it looks like that " + contactAfter + ".";
-            } else throw new ContactNotFoundException("Contact " + contactRequest + " was not found.");
+            long contactId = contact.getId();
+            service.updateContact(contactId, contactRequest);
+            Contact contactAfter = service.findById(contactId);
+            return contactAfter;
         }
-        System.out.println("IN THE CONTROLLERS METHOD!!!(THE END))");
-        service.addContact(contactRequest);
-        System.out.println("Contact " + contactRequest + " was added to the phone-book.");
-        return "Contact " + contactRequest + " was added to the phone-book.";
+
+        return service.addContact(contactRequest);
     }
 
-    @RequestMapping(path = "/create_or_delete", method = RequestMethod.POST)
-    public @ResponseBody String createOrDelete(@Param("delete") String delete, @RequestBody ContactRequest contactRequest) {
+    @RequestMapping(path = "/create_or_delete", consumes = MediaType.APPLICATION_JSON_UTF8_VALUE, method = RequestMethod.POST)
+    public Contact createOrDelete(@Param("delete") String delete, @RequestBody ContactRequest contactRequest) {
         if(contactRequest.isAnyEmptyProperties()) {
             throw new BadRequestException("Bad request.");
         }
 
         ArrayList<Contact> contacts = new ArrayList<>(service.findByNameAndSurname(contactRequest.getName(),contactRequest.getSurname()));
+
+        Contact contact = contacts.get(0);
 
         if(delete.toLowerCase().equals("true")) {
             if(!contacts.isEmpty()) {
-                Contact contact = contacts.get(0);
                 service.deleteContact(contact.getId());
-                return "Contact " + contact + " was deleted.";
-            } else throw new ContactNotFoundException("Contact " + contactRequest + " was not found.");
+                return contact;
+            } else
+                throw new ContactNotFoundException("Contact " + contactRequest + " was not found.");
         }
 
         service.addContact(contactRequest);
-        return "Contact " + contactRequest + " was added to the phone-book.";
+        return contact;
     }
-/*
+
     @RequestMapping(value = "/all_contacts", method = RequestMethod.GET)
-    public ResponseEntity<List<Contact>> getAllContacts() throws IOException, ServletException {
-        System.out.println("IN THE CONTROLLERS METHOD!!!(THE END))");
-        ArrayList<Contact> allContacts = new ArrayList<>(service.findAllContacts());
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-Type:application/json", "application/json");
-        ResponseEntity<List<Contact>> responseEntity = new ResponseEntity(allContacts, headers, HttpStatus.OK);
-        System.out.println("IN THE CONTROLLERS METHOD!!!(THE END))");
-        return responseEntity;
-    }*/
+    public List<Contact> getAllContacts() {
+        return service.findAllContacts();
+    }
 
-    @ResponseBody
-    @RequestMapping(value = "/all_contacts", method = RequestMethod.GET, produces = "text/plain")
-    public ResponseEntity<String> getAllContacts() {
-        ArrayList<Contact> allContacts = new ArrayList<>(service.findAllContacts());
+    @RequestMapping(value = "/insert", method = RequestMethod.POST)
+    public void insert() {
+        ContactRequest first = new ContactRequest("Jack", "Bauer", "111");
+        ContactRequest second = new ContactRequest("Chloe", "O'Brian", "222");
+        ContactRequest third = new ContactRequest("Kim", "Bauer", "333");
+        ContactRequest fourth = new ContactRequest("David", "Palmer", "444");
+        ContactRequest fifth = new ContactRequest("Michelle", "Dessler", "555");
 
-        StringBuilder response = new StringBuilder();
-
-        for (Contact allContact : allContacts) {
-            response.append(allContact.toString()).append("\n");
-        }
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_PLAIN);
-        return new ResponseEntity<>(response.toString(), headers, HttpStatus.OK);
+        service.addContact(first);
+        service.addContact(second);
+        service.addContact(third);
+        service.addContact(fourth);
+        service.addContact(fifth);
     }
 }

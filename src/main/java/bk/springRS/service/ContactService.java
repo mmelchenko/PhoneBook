@@ -6,7 +6,10 @@ import bk.springRS.repository.ContactRepository;
 import bk.springRS.request.ContactRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import java.util.List;
 
 @Service
@@ -40,22 +43,24 @@ public class ContactService {
         return repository.findByNameAndSurname(name, surname);
     }
 
-    public void addContact(ContactRequest contactRequest) {
+    public Contact addContact(ContactRequest contactRequest) {
         Contact contact = new Contact();
         contact.setName(contactRequest.getName());
         contact.setSurname(contactRequest.getSurname());
         contact.setPhone(contactRequest.getPhone());
         repository.save(contact);
         repository.flush();
+        return contact;
     }
 
-    public void updateContact(Long id, ContactRequest contactRequest) {
+    public Contact updateContact(Long id, ContactRequest contactRequest) {
         Contact contact = repository.findOne(id);
         contact.setName(contactRequest.getName());
         contact.setSurname(contactRequest.getSurname());
         contact.setPhone(contactRequest.getPhone());
         repository.save(contact);
         repository.flush();
+        return contact;
     }
 
     public void deleteContact(Long id) {
