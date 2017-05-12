@@ -1,0 +1,5 @@
+INSERT INTO CONTACTS VALUES (1, 'Jack', 'Bauer', '111');
+INSERT INTO CONTACTS VALUES (2, 'Chloe', 'O''Brian', '222');
+INSERT INTO CONTACTS VALUES (3, 'Kim', 'Bauer', '333');
+INSERT INTO CONTACTS VALUES (4, 'David', 'Palmer', '444');
+INSERT INTO CONTACTS VALUES (5, 'Michelle', 'Dessler', '555');
